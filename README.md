@@ -17,7 +17,7 @@ The repository is structured to mirror Caldera's backend. This means you do not 
 
 ### Step 1: Clone the Repository
 ```bash
-git clone [https://github.com/Mahshid-MSH/APT_Emulations.git](https://github.com/Mahshid-MSH/APT_Emulations.git)
+git clone https://github.com/Mahshid-MSH/APT_Emulations.git
 cd APT_Emulations
 ```
 
