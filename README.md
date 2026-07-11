@@ -61,7 +61,7 @@ To keep things organized as this repository grows, everything is sorted by Threa
             └── adversaries/   <-- Contains the main attack flow (YAML)
 ```
 
-🤝 Let's Learn Together (Contributing)
+### 🤝 Let's Build Together (Contributing)
 I am actively learning, and I would love your help!
 
 Whether you are a seasoned red teamer, a SOC analyst, or a fellow student, contributions are highly encouraged. If you spot a mistake, know a better way to write a Caldera ability, or want to add an entirely new APT emulation plan to the repo, please jump in.
