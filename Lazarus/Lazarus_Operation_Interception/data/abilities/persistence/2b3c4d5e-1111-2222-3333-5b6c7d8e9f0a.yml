@@ -1,0 +1,16 @@
+- id: 2b3c4d5e-1111-2222-3333-5b6c7d8e9f0a
+  name: Scheduled Task - HPSync
+  description: Creates a scheduled task named HPSync for persistence.
+  tactic: persistence
+  technique:
+    attack_id: T1053.005
+    name: "Scheduled Task/Job: Scheduled Task"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          schtasks /create /tn HPSync /tr "cmd.exe /c echo Caldera Emulation" /sc daily /st 12:00 /f
+        cleanup: |
+          schtasks /delete /tn HPSync /f
+  repeatable: false
+  requirements: []

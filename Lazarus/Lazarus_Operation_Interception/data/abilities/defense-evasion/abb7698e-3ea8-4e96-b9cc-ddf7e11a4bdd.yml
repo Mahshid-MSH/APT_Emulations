@@ -1,0 +1,15 @@
+- id: abb7698e-3ea8-4e96-b9cc-ddf7e11a4bdd
+  name: Masquerading - WMIC Rename
+  description: Copies wmic.exe to a temp directory as ncv.exe and executes it to gather OS details.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1036.005
+    name: "Masquerading: Match Legitimate Name or Location"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          copy %WINDIR%\System32\wbem\wmic.exe %TEMP%\ncv.exe
+          %TEMP%\ncv.exe os get name,version
+  repeatable: false
+  requirements: []

@@ -1,0 +1,17 @@
+- id: 78b85e95-0892-4db1-9451-71c97a4ae552
+  name: Masquerading - WMIC Rename
+  description: Emulation of Masquerading - WMIC Rename for Operation In(ter)ception
+  tactic: defense-evasion
+  technique:
+    attack_id: T1036.005
+    name: "Masquerading: Match Legitimate Name or Location"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          copy %WINDIR%\System32\wbem\wmic.exe %TEMP%\ncv.exe
+          %TEMP%\ncv.exe os get name,version
+        cleanup: |
+          del %TEMP%\ncv.exe
+  repeatable: false
+  requirements: []

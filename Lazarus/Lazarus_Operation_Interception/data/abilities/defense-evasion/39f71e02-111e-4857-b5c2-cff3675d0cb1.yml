@@ -1,0 +1,14 @@
+- id: 39f71e02-111e-4857-b5c2-cff3675d0cb1
+  name: Rundll32 Execution
+  description: Emulation of Rundll32 Execution for Operation In(ter)ception
+  tactic: defense-evasion
+  technique:
+    attack_id: T1218.011
+    name: "System Binary Proxy Execution: Rundll32"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          rundll32.exe %WINDIR%\System32\syssetup.dll,SetupInfObjectInstallAction
+  repeatable: false
+  requirements: []

