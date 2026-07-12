@@ -48,7 +48,7 @@ Select the new APT profile from the dropdown (e.g., Lazarus - Operation In(ter)c
 Build an operation and run it against your agents!
 
 
-🏗️ Repository Architecture
+### 🏗️ Repository Architecture
 To keep things organized as this repository grows, everything is sorted by Threat Actor ➔ Campaign Name. Inside each campaign is a data folder that perfectly matches Caldera's plugin structure.
 
 ```plaintext
