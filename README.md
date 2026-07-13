@@ -29,12 +29,15 @@ cd Lazarus/Lazarus_Operation_Interception
 ```
 
 ### Step 3: Copy to Caldera
-Copy the contents of the local data/ folder directly into your Caldera emu (or stockpile) plugin directory.
-(Note: Adjust /path/to/caldera/ to match where Caldera is installed on your machine).
+The `emu` plugin dynamically ingests CTID-formatted plans by crawling its `adversary-emulation-plans` directory. Copy your chosen campaign folder directly into that path. 
+
+*(Note: Adjust `/path/to/caldera/` to match where Caldera is installed on your machine).*
 
 ```bash
-cp -r data/* /path/to/caldera/plugins/emu/data/
+# Copy the specific campaign directly into the emu plugin's emulation plans directory
+cp -r Lazarus/Lazarus_Operation_Interception /path/to/caldera/plugins/emu/data/adversary-emulation-plans/
 ```
+
 
 ### Step 4: Restart and Run
 Restart your Caldera server so it can parse the newly added UUIDs and YAML configurations.
