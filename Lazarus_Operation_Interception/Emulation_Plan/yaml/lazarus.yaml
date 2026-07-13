@@ -25,13 +25,12 @@
     windows:
       psh,pwsh:
         command: |
-          $dir = Join-Path $env:TEMP "T1036_005_test"
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          $source = "$env:SystemRoot\System32\wbem\wmic.exe"
-          $target = "$dir\ncv.exe"
-          Copy-Item -Path $source -Destination $target -Force
-          & $target os get Caption,Version
-
+      $dir = Join-Path $env:TEMP "T1036_005_test"
+      New-Item -ItemType Directory -Force -Path $dir | Out-Null
+      $source = "$env:SystemRoot\System32\wbem\wmic.exe"
+      $target = "$dir\ncv.exe"
+      Copy-Item -Path $source -Destination $target -Force
+      & $target os get Caption,Version
   executors:
   - name: powershell
     command: |
@@ -98,8 +97,7 @@
     windows:
       cmd:
         command: |
-          sc create "LazarusTestSvc" binPath= "C:\Windows\System32\svchost.exe -k netsvcs" start= auto
-          sc start "LazarusTestSvc"
+          sc create "LazarusTestSvc" binPath= "C:\Windows\System32\svchost.exe -k netsvcs" start= auto && sc start "LazarusTestSvc"
 
   executors:
   - name: command_prompt
