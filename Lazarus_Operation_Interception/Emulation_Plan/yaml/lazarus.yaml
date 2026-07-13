@@ -126,7 +126,7 @@
   executors:
   - name: command_prompt
     command: |
-      rundll32.exe C:\Windows\System32\syssetup.dll,SetupOobeBnk
+      rundll32.exe shell32.dll,ShellExec_RunDLL C:\Windows\System32\calc.exe
 
 - id: 5c7e14a2-7b8c-4e9f-91a3-83bd521e4f9d
   name: Execute COM DLL via Regsvr32
