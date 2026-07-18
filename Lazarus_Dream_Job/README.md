@@ -1,4 +1,3 @@
-```markdown
 # Lazarus Group "Dream Job" Emulation
 
 This repository contains an emulation plan and payload source code to simulate the Lazarus Group's "Dream Job" campaign. The attack chain utilizes a trojanized Notepad++ plugin (`ComparePlus.dll`) to perform Early Bird APC Process Injection, followed by lateral movement, credential access, persistence, and network discovery using a simulated `SiteShooter` script.
