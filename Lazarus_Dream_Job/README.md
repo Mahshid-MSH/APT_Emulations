@@ -62,30 +62,9 @@ On your CALDERA server, create a file named `lazarus_dream_job_sources.yml` insi
       score: 1
 
 ```
-
-### 2. Install the Emulation Plan (Adversary Profile)
-
-Move the `lazarus_compareplus_emulation.yaml` file from this repository into your CALDERA adversaries directory:
-
-```bash
-mv lazarus_compareplus_emulation.yaml ~/caldera/data/adversaries/
-
-```
-
-*(Note: If you are using a specific plugin like Stockpile, the path might be `~/caldera/plugins/stockpile/data/adversaries/`)*
-
-### 3. Restart CALDERA
-
-Restart your CALDERA server to ensure it parses the new YAML files correctly.
-
-```bash
-python3 server.py
-
-```
-
 ---
 
-## Phase 3: Execution & Validation
+## Phase 2: Execution & Validation
 
 ### 1. Deploy the Agent
 
